@@ -35,7 +35,7 @@ import (
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/metrics"
+	//"github.com/algorand/indexer/util/metrics"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -226,6 +226,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
+			/*
 			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
@@ -251,6 +252,9 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
+			*/
+			modifiedTxns := block.Payset
+			var delta ledgercore.StateDelta
 
 			err = writer.AddBlock(block, modifiedTxns, delta)
 			if err != nil {

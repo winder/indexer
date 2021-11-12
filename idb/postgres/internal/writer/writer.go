@@ -1,8 +1,10 @@
 package writer
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -335,7 +337,40 @@ func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, roun
 		next, rows = addInnerTransactionParticipation(&itxn, round, next+1, rows)
 	}
 	return next, rows
+}
 
+func sortTxnParticipationRows(rows [][]interface{}) {
+  lessFunc := func(i, j int) bool {
+    row0 := rows[i]
+    row1 := rows[j]
+    {
+      ret := bytes.Compare(row0[0].([]byte), row1[0].([]byte))
+      if ret < 0 {
+        return true
+      }
+      if ret > 0 {
+        return false
+      }
+    }
+    {
+      round0 := row0[1].(uint64)
+      round1 := row1[1].(uint64)
+      // Sort round in descending order.
+      if round0 > round1 {
+        return true
+      }
+      if round0 < round1 {
+        return false
+      }
+    }
+    {
+      intra0 := row0[2].(uint64)
+      intra1 := row1[2].(uint64)
+      // Sort intra in descending order.
+      return intra0 > intra1
+    }
+  };
+  sort.Slice(rows, lessFunc)
 }
 
 func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
@@ -351,6 +386,8 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 
 		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round()), next+1, rows)
 	}
+
+  sortTxnParticipationRows(rows)
 
 	_, err := w.tx.CopyFrom(
 		context.Background(),
@@ -510,15 +547,18 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 
 // AddBlock writes the block and accounting state deltas to the database.
 func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
+  /*
 	err := w.addTransactions(block, modifiedTxns)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
-	err = w.addTransactionParticipation(block)
+  */
+  err := w.addTransactionParticipation(block)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
+	/*
 	var batch pgx.Batch
 
 	addBlockHeader(&block.BlockHeader, &batch)
@@ -546,6 +586,7 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 	if err != nil {
 		return fmt.Errorf("AddBlock() close results err: %w", err)
 	}
+	*/
 
 	return nil
 }
