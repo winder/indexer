@@ -197,6 +197,22 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	defer db.accountingLock.Unlock()
 
 	f := func(tx pgx.Tx) error {
+		var wg sync.WaitGroup
+		defer wg.Wait()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			f := func(tx pgx.Tx) error {
+				start := time.Now()
+				err := writer.AddTransactionParticipation(block, tx)
+				fmt.Printf("txn part: %v\n", time.Since(start))
+				return err
+			}
+			db.txWithRetry(serializable, f)
+		}()
+
 		// Check and increment next round counter.
 		importstate, err := db.getImportState(context.Background(), tx)
 		if err != nil {
@@ -213,15 +229,15 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 
-		writer, err := writer.MakeWriter(tx)
+		w, err := writer.MakeWriter(tx)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		defer writer.Close()
+		defer w.Close()
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			err := writer.AddBlock0(block)
+			err := w.AddBlock0(block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
@@ -255,8 +271,21 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			fmt.Printf("eval: %v\n", time.Since(start))
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				f := func(tx pgx.Tx) error {
+					start := time.Now()
+					err := writer.AddTransactions(block, modifiedTxns, tx)
+					fmt.Printf("txn: %v\n", time.Since(start))
+					return err
+				}
+				db.txWithRetry(serializable, f)
+			}()
+
 			start = time.Now()
-			err = writer.AddBlock(block, modifiedTxns, delta)
+			err = w.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
