@@ -239,23 +239,28 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			proto.EnableAssetCloseAmount = true
 
+			start := time.Now()
 			resources, err := prepareEvalResources(&ledgerForEval, block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
+			fmt.Printf("prepare: %v\n", time.Since(start))
 
-			start := time.Now()
+			start = time.Now()
 			delta, modifiedTxns, err :=
 				ledger.EvalForIndexer(ledgerForEval, block, proto, resources)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
+			fmt.Printf("eval: %v\n", time.Since(start))
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
+			start = time.Now()
 			err = writer.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
+			fmt.Printf("writer: %v\n", time.Since(start))
 		}
 
 		return nil
