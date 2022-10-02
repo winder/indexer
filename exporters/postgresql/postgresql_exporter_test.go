@@ -56,10 +56,10 @@ func TestConnectDbFailure(t *testing.T) {
 
 func TestConfigDefault(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
-	defaultConfig := &ExporterConfig{}
+	defaultConfig := &Config{}
 	expected, err := yaml.Marshal(defaultConfig)
 	if err != nil {
-		t.Fatalf("unable to Marshal default postgresql.ExporterConfig: %v", err)
+		t.Fatalf("unable to Marshal default postgresql.Config: %v", err)
 	}
 	assert.Equal(t, plugins.PluginConfig(expected), pgsqlExp.Config())
 }

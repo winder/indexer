@@ -433,6 +433,31 @@ func (db *IndexerDb) getMaxRoundAccounted(ctx context.Context, tx pgx.Tx) (uint6
 	return round, nil
 }
 
+// SetNextRoundToAccount overrides the automatic accounting logic and should not be used in normal scenarios.
+func (db *IndexerDb) SetNextRoundToAccount(round uint64) error {
+	ctx := context.Background()
+	tx, err := db.db.BeginTx(ctx, serializable)
+	if err != nil {
+		return fmt.Errorf("SetNextRoundToAccount() failed to begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	state, err := db.getImportState(ctx, tx)
+	// TODO: ok to ignore ErrorNotInitialized?
+	//if err != idb.ErrorNotInitialized {
+	if err != nil {
+		return fmt.Errorf("SetNextRoundToAccount() unable to fetch import state: %w", err)
+	}
+
+	state.NextRoundToAccount = round
+	err = db.setImportState(tx, &state)
+	if err != nil {
+		return fmt.Errorf("SetNextRoundToAccount() failed to set import state: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}
+
 // GetBlock is part of idb.IndexerDB
 func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)

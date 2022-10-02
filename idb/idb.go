@@ -168,6 +168,8 @@ type IndexerDb interface {
 
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
+	// SetNextRoundToAccount overrides the automatic accounting logic and should not be used in normal scenarios.
+	SetNextRoundToAccount(uint642 uint64) error
 	GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error)
 	GetNetworkState() (NetworkState, error)
 	SetNetworkState(genesis bookkeeping.Genesis) error

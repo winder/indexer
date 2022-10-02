@@ -3,6 +3,7 @@ package postgresql
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -23,7 +24,7 @@ const exporterName = "postgresql"
 
 type postgresqlExporter struct {
 	round  uint64
-	cfg    ExporterConfig
+	cfg    Config
 	db     idb.IndexerDb
 	logger *logrus.Logger
 }
@@ -51,24 +52,37 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 func (exp *postgresqlExporter) Init(_ context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	dbName := "postgres"
 	exp.logger = logger
-	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
-		return fmt.Errorf("connect failure in unmarshalConfig: %v", err)
+	var err error
+	exp.cfg, err = exp.unmarshalConfig(string(cfg))
+	if err != nil {
+		return fmt.Errorf("Init() connect failure in unmarshalConfig: %v", err)
 	}
 	// Inject a dummy db for unit testing
 	if exp.cfg.Test {
 		dbName = "dummy"
+
 	}
 	var opts idb.IndexerDbOptions
 	opts.MaxConn = exp.cfg.MaxConn
 	opts.ReadOnly = false
 	db, ready, err := idb.IndexerDbByName(dbName, exp.cfg.ConnectionString, opts, exp.logger)
 	if err != nil {
-		return fmt.Errorf("connect failure constructing db, %s: %v", dbName, err)
+		return fmt.Errorf("Init() connect failure constructing db, %s: %v", dbName, err)
 	}
 	exp.db = db
 	<-ready
-	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
+
+	rnd, err := exp.db.GetNextRoundToAccount()
+	if err == nil || err == idb.ErrorNotInitialized {
 		exp.round = rnd
+		err = nil
+	} else {
+		return fmt.Errorf("Init() failed to get next roun: %w", err)
+	}
+
+	if exp.cfg.RoundOverride != 0 {
+		exp.round = exp.cfg.RoundOverride
+		err = exp.db.SetNextRoundToAccount(exp.cfg.RoundOverride)
 	}
 	return err
 }
@@ -86,6 +100,7 @@ func (exp *postgresqlExporter) Close() error {
 }
 
 func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
+	start := time.Now()
 	if exportData.Delta == nil {
 		if exportData.Round() == 0 {
 			exportData.Delta = &ledgercore.StateDelta{}
@@ -114,6 +129,8 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 		return err
 	}
 	exp.round = exportData.Round() + 1
+	exp.logger.Infof("Receive() round exported (%s)", time.Since(start))
+
 	return nil
 }
 
@@ -128,8 +145,10 @@ func (exp *postgresqlExporter) Round() uint64 {
 	return exp.round
 }
 
-func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {
-	return yaml.Unmarshal([]byte(cfg), &exp.cfg)
+func (exp *postgresqlExporter) unmarshalConfig(cfg string) (Config, error) {
+	var config Config
+	err := yaml.Unmarshal([]byte(cfg), &config)
+	return config, err
 }
 
 func init() {
