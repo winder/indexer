@@ -443,7 +443,7 @@ func (db *IndexerDb) SetNextRoundToAccount(round uint64) error {
 	defer tx.Rollback(ctx)
 
 	state, err := db.getImportState(ctx, tx)
-	if err != idb.ErrorNotInitialized {
+	if err != nil && err != idb.ErrorNotInitialized {
 		return fmt.Errorf("SetNextRoundToAccount() unable to fetch import state: %w", err)
 	}
 
