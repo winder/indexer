@@ -176,6 +176,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
+	start := time.Now()
 	block := vb.Block()
 	db.log.Printf("adding block %d", block.Round())
 
@@ -254,6 +255,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
+	db.log.Infof("Block written after %s (%d txns)", time.Since(start), len(block.Payset))
 
 	return nil
 }
