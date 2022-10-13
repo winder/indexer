@@ -2,6 +2,7 @@ package dummy
 
 import (
 	"context"
+
 	"github.com/algorand/go-algorand/crypto"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -42,6 +43,10 @@ func (db *dummyIndexerDb) GetNextRoundToAccount() (uint64, error) {
 // GetNextRoundToLoad is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetNextRoundToLoad() (uint64, error) {
 	return 0, nil
+}
+
+func (db *dummyIndexerDb) SetNextRoundToAccount(uint642 uint64) error {
+	return nil
 }
 
 // GetSpecialAccounts is part of idb.IndexerDb
