@@ -222,11 +222,16 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		go func() {
 			defer wg.Done()
 			f := func(tx pgx.Tx) error {
+				st := time.Now()
 				err := writer.AddTransactions(&block, block.Payset, tx)
 				if err != nil {
 					return err
 				}
-				return writer.AddTransactionParticipation(&block, tx)
+				fmt.Printf("------------------\nRound: %d\nAddTransactions: %s\n", vb.Block().Round(), time.Since(st))
+				st = time.Now()
+				err = writer.AddTransactionParticipation(&block, tx)
+				fmt.Printf("AddTransactionParticipation: %s\n------------------\n", time.Since(st))
+				return err
 			}
 			err0 = db.txWithRetry(serializable, f)
 		}()
@@ -243,10 +248,13 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		wg.Wait()
 		isUniqueViolationFunc := func(err error) bool {
 			var pgerr *pgconn.PgError
-			return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
+			violation := errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
+			return violation
 		}
 		if (err0 != nil) && !isUniqueViolationFunc(err0) {
 			return fmt.Errorf("AddBlock() err0: %w", err0)
+		} else if err0 != nil {
+			db.log.Warnf("AddBlock() ignoring violation error, this usually means the data has already been written: %s", err)
 		}
 
 		return nil
