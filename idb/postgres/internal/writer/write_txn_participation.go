@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/jackc/pgx/v4"
 
@@ -74,18 +73,18 @@ func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, roun
 
 // AddTransactionParticipation writes account participation info to the
 // `txn_participation` table.
-func AddTransactionParticipation(block *bookkeeping.Block, tx pgx.Tx) error {
+func AddTransactionParticipation(round uint64, payset []transactions.SignedTxnInBlock, tx pgx.Tx) error {
 	var rows [][]interface{}
 	next := uint64(0)
 
-	for _, stxnib := range block.Payset {
+	for _, stxnib := range payset {
 		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
 
 		for j := range participants {
-			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), next})
+			rows = append(rows, []interface{}{participants[j][:], round, next})
 		}
 
-		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round()), next+1, rows)
+		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, round, next+1, rows)
 	}
 
 	_, err := tx.CopyFrom(
