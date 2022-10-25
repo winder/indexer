@@ -1,6 +1,7 @@
 package postgresql
 
 // serde for converting an Config to/from a PostgresqlExporterConfig
+import "github.com/algorand/indexer/exporters/util"
 
 // Config specific to the postgresql exporter
 type Config struct {
@@ -18,4 +19,7 @@ type Config struct {
 
 	// TODO: Pass round override to init function.
 	RoundOverride uint64 `yaml:"round-override"`
+
+	// Delete has the configuration for data pruning.
+	Delete util.PruneConfigurations `yaml:"delete-task"`
 }

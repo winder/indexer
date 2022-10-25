@@ -103,3 +103,8 @@ func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) 
 func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 	return nil
 }
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
+	return nil
+}
