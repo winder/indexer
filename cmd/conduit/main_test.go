@@ -12,8 +12,8 @@ import (
 func TestInitDataDirectory(t *testing.T) {
 	verifyFile := func(file string) {
 		require.FileExists(t, file)
-		data, err := os.ReadFile(file)
-		require.NoError(t, err)
+		//data, err := os.ReadFile(file)
+		//require.NoError(t, err)
 		//require.Equal(t, sampleConfig, string(data))
 	}
 
