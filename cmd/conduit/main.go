@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -136,7 +137,13 @@ func makeConduitCmd() *cobra.Command {
 //go:embed conduit.yml.example
 var sampleConfig string
 
-func runConduitInit(path string) error {
+//go:embed importer.yml.example
+var defaultImporter string
+
+//go:embed exporter.yml.example
+var defaultExporter string
+
+func runConduitInit(path string, importerFlag string, processorsFlag string, exporterFlag string) error {
 	var location string
 	if path == "" {
 		path = defaultDataDirectory
@@ -156,7 +163,36 @@ func runConduitInit(path string) error {
 	}
 	defer f.Close()
 
-	f.WriteString(sampleConfig)
+	var processorList []string
+
+	if processorsFlag != "" {
+		processorList = strings.Split(processorsFlag, ",")
+	}
+
+	var importer string
+	const twoSpaces = "  "
+	if importerFlag == "" {
+		importer = defaultImporter
+	} else {
+		importer = twoSpaces + "name: " + importerFlag + "\n" + twoSpaces + "config:"
+	}
+
+	var exporter string
+	if exporterFlag == "" {
+		exporter = defaultExporter
+	} else {
+		exporter = twoSpaces + "name: " + exporterFlag + "\n" + twoSpaces + "config:"
+	}
+
+	var processors string
+	for _, processor := range processorList {
+		processors = processors + twoSpaces + "- "
+		processors = processors + "name: " + processor + "\n" + twoSpaces + twoSpaces + "config:\n"
+	}
+
+	config := fmt.Sprintf(sampleConfig, importer, processors, exporter)
+
+	f.WriteString(config)
 	if err != nil {
 		return fmt.Errorf("runConduitInit(): failed to write sample config: %w", err)
 	}
@@ -173,19 +209,25 @@ func runConduitInit(path string) error {
 // makeInitCmd creates a sample data directory.
 func makeInitCmd() *cobra.Command {
 	var data string
+	var importer string
+	var exporter string
+	var processors string
 	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "initializes a sample data directory",
-		Long:  "initializes a Conduit data directory and conduit.yml file configured with the file_writer plugin. The config file needs to be modified slightly to include an algod address and token. Once ready, launch conduit with './conduit -d /path/to/data'.",
-		Args:  cobra.NoArgs,
+		Use:     "init",
+		Short:   "initializes a sample data directory",
+		Long:    "initializes a Conduit data directory and conduit.yml file configured (by default) with the file_writer plugin. The config file needs to be modified slightly to include an algod address and token. Once ready, launch conduit with './conduit -d /path/to/data'.",
+		Example: "conduit init  -d /path/to/data -i importer -p processor1,processor2 -e=exporter",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConduitInit(data)
+			return runConduitInit(data, importer, processors, exporter)
 		},
 		SilenceUsage: true,
 	}
 
 	cmd.Flags().StringVarP(&data, "data", "d", "", "Full path to new data directory. If not set, a directory named 'data' will be created in the current directory.")
-
+	cmd.Flags().StringVarP(&importer, "importer", "i", "", "data importer name.")
+	cmd.Flags().StringVarP(&processors, "processors", "p", "", "comma-separated list of processors.")
+	cmd.Flags().StringVarP(&exporter, "exporter", "e", "", "data exporter name.")
 	return cmd
 }
 
