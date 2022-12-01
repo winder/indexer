@@ -21,7 +21,7 @@ func TestInitDataDirectory(t *testing.T) {
 	defaultDataDirectory = "override"
 	require.NoDirExists(t, defaultDataDirectory)
 
-	runConduitInit("")
+	runConduitInit("", "", "", "")
 	verifyFile(fmt.Sprintf("%s/conduit.yml", defaultDataDirectory))
 
 	runConduitInit(fmt.Sprintf("%s/provided_directory", defaultDataDirectory), "", "", "")
