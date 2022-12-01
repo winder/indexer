@@ -1,0 +1,4 @@
+  name: algod
+  config:
+    netaddr: "your algod address here"
+    token: "your algod token here"

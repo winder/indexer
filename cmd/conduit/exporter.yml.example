@@ -1,0 +1,4 @@
+  # The filewriter exporter writes raw block data to a file
+  name: filewriter
+  config:
+    block-dir: "path where data should be written"
